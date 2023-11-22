@@ -61,6 +61,7 @@ void setup(){
 }
 
 void loop(){
+  mqttClient.poll();
 
 // Code for Button
   buttonState = digitalRead(buttonPin);
@@ -86,5 +87,10 @@ void loop(){
   Serial.print("Temperature  (C): ");
   Serial.println(temp);
   */
+
+  
+  mqttClient.beginMessage(topic);
+  mqttClient.print(hum);
+  mqttClient.endMessage();
 
 }
