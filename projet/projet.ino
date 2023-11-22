@@ -16,6 +16,7 @@ void setup() {
   
   // Code for Button
   pinMode(whiteLedPin, OUTPUT);
+  pinMode(redLedPin, OUTPUT);
   pinMode(buttonPin, INPUT);
 
   // Code for DHT11 Sensor
