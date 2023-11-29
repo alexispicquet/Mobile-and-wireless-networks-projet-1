@@ -13,6 +13,9 @@ DHT dht11(dhtPin, dhtType);
 
 const char* ip = "192.168.5.193";
 
+const char* MQTT_USER = "toto";
+const char* MQTT_PASSWD = "totopwd";
+
 const char topic[20] = "humidite";
 const char topic2[20] = "temperature";
 
