@@ -11,7 +11,7 @@ const int dhtPin = 26;  // the number of the DHT11 pin
 const int dhtType = 11;  // the number of the DHT type
 DHT dht11(dhtPin, dhtType);
 
-const char* ip = "192.168.5.193";
+const char* ip = "192.168.5.77";
 
 const char* MQTT_USER = "toto";
 const char* MQTT_PASSWD = "totopwd";
