@@ -13,11 +13,11 @@ password_file C:\Users\cleme\Desktop\mosquitto\passwd
 
 # Starting the service
 
-**Not via cmd** + **open the port 1883**
+On windows with **powershell** ```net start mosquitto```
 
 # Add password file
 
-## Create file and first user
+## Create new file then add first user with
 ```
 mosquitto_passwd -c <password file> <username>
 ```

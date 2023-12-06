@@ -11,10 +11,10 @@ const int dhtPin = 26;  // the number of the DHT11 pin
 const int dhtType = 11;  // the number of the DHT type
 DHT dht11(dhtPin, dhtType);
 
-const char* ip = "192.168.5.77";
+const char* ip = "192.168.5.193";
 
 const char* MQTT_USER = "toto";
-const char* MQTT_PASSWD = "totopwd";
+const char* MQTT_PASSWD = "tata";
 
 const char topic[20] = "humidite";
 const char topic2[20] = "temperature";
@@ -51,6 +51,8 @@ void setup(){
   Serial.println("\nConnected to the WiFi network");
   Serial.print("Local ESP32 IP: ");
   Serial.println(WiFi.localIP());
+
+  mqttClient.setUsernamePassword(MQTT_USER, MQTT_PASSWD);
 
   // Connect to broker
   if (!mqttClient.connect(ip, 1883)) {
