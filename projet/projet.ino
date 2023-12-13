@@ -1,6 +1,16 @@
 #include <DHT.h>
 #include <ArduinoMqttClient.h>
 #include <WiFi.h>
+#include "AESLib.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+// import base64 conversion library
+#include "arduino_base64.hpp"
+
+// declare a global AESLib object
+AESLib aesLib;
 
 const int buttonPin = 27;  // the number of the pushbutton pin
 const int whiteLedPin = 33;    // the number of the LED pin
@@ -28,6 +38,48 @@ MqttClient mqttClient(wifiClient);
 const char* ssid = "Nothing (2)";
 const char* password = "12345678";
 
+String encrypt(String inputText) {
+   
+    int bytesInputLength = inputText.length() + 1;
+
+    byte bytesInput[bytesInputLength];
+
+    inputText.getBytes(bytesInput, bytesInputLength);
+
+    int outputLength = aesLib.get_cipher_length(bytesInputLength);
+
+    byte bytesEncrypted[outputLength];
+
+    // KEY and IV
+    byte aesKey[] = { 23, 45, 56, 67, 67, 87, 98, 12, 32, 34, 45, 56, 67, 87, 65, 5 };
+    byte aesIv[] = { 123, 43, 46, 89, 29, 187, 58, 213, 78, 50, 19, 106, 205, 1, 5, 7 };
+
+    aesLib.set_paddingmode((paddingMode)0);
+
+    aesLib.encrypt(bytesInput, bytesInputLength, bytesEncrypted, aesKey, 16, aesIv);
+
+    char base64EncodedOutput[base64::encodeLength(outputLength)];
+
+    // convert the encrypted bytes into base64 string "base64EncodedOutput"
+    base64::encode(bytesEncrypted, outputLength, base64EncodedOutput);
+
+    // convert the encoded base64 char array into string
+    return String(base64EncodedOutput);
+}
+
+String floatToString(float num) {
+
+  char output[50];
+  snprintf(output, 50, "%f", num);
+  return output ;
+}
+
+/*
+byte[] generateIV() {
+  byte aesIv[] = { 123, 43, 46, 89, 29, 187, 58, 213, 78, 50, 19, 106, 205, 1, 5, 7 };
+  return  aesIv[]
+}
+*/
 void setup(){
     
   // Code for Button
@@ -95,14 +147,16 @@ void loop(){
   */
 
   
+  Serial.println(encrypt(floatToString(hum)));
+  
   mqttClient.beginMessage(topic);
-  mqttClient.print(hum);
-  Serial.println(hum);
+  mqttClient.print(encrypt(floatToString(hum)));
+  //Serial.println(hum);
   mqttClient.endMessage();
 
   mqttClient.beginMessage(topic2);
-  mqttClient.print(temp);
-  Serial.println(temp);
+  mqttClient.print(encrypt(floatToString(temp)));
+  //Serial.println(temp);
   mqttClient.endMessage();
 
 }
