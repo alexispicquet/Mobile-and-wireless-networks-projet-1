@@ -21,7 +21,7 @@ const int dhtPin = 26;  // the number of the DHT11 pin
 const int dhtType = 11;  // the number of the DHT type
 DHT dht11(dhtPin, dhtType);
 
-const char* ip = "192.168.5.193";
+const char* ip = "192.168.21.193";
 
 const char* MQTT_USER = "toto";
 const char* MQTT_PASSWD = "tata";
@@ -52,7 +52,8 @@ String encrypt(String inputText) {
 
     // KEY and IV
     byte aesKey[] = { 23, 45, 56, 67, 67, 87, 98, 12, 32, 34, 45, 56, 67, 87, 65, 5 };
-    byte aesIv[] = { 123, 43, 46, 89, 29, 187, 58, 213, 78, 50, 19, 106, 205, 1, 5, 7 };
+    //Completely random Iv 
+    byte aesIv[] = { rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256 };
 
     aesLib.set_paddingmode((paddingMode)0);
 
@@ -63,8 +64,20 @@ String encrypt(String inputText) {
     // convert the encrypted bytes into base64 string "base64EncodedOutput"
     base64::encode(bytesEncrypted, outputLength, base64EncodedOutput);
 
+    //String for the concat of Iv and encryptedMassage
+    String encryptToSend ;
+    for(int loop = 0; loop < 14; loop++){
+      encryptToSend += aesIv[loop] ;
+      encryptToSend += "," ;
+    }
+    
+    //Concat the last byte and the message with ";" as a separator
+    encryptToSend += aesIv[15] ;
+    encryptToSend += ";" ;
+    encryptToSend += String(base64EncodedOutput) ;
+
     // convert the encoded base64 char array into string
-    return String(base64EncodedOutput);
+    return encryptToSend;
 }
 
 String floatToString(float num) {
@@ -74,15 +87,10 @@ String floatToString(float num) {
   return output ;
 }
 
-/*
-byte[] generateIV() {
-  byte aesIv[] = { 123, 43, 46, 89, 29, 187, 58, 213, 78, 50, 19, 106, 205, 1, 5, 7 };
-  return  aesIv[]
-}
-*/
+
 void setup(){
-    
-  // Code for Button
+  srand (time(NULL));
+  
   pinMode(whiteLedPin, OUTPUT);
   pinMode(redLedPin, OUTPUT);
   pinMode(buttonPin, INPUT);
