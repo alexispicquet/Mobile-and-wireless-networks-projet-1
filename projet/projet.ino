@@ -66,7 +66,7 @@ String encrypt(String inputText) {
 
     //String for the concat of Iv and encryptedMassage
     String encryptToSend ;
-    for(int loop = 0; loop < 14; loop++){
+    for(int loop = 0; loop < 15; loop++){
       encryptToSend += aesIv[loop] ;
       encryptToSend += "," ;
     }
