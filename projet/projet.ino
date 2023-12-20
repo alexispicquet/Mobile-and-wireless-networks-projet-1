@@ -38,7 +38,24 @@ MqttClient mqttClient(wifiClient);
 const char* ssid = "Nothing (2)";
 const char* password = "12345678";
 
+String addPadding(String inputText) {
+    // Determine the block size of your encryption algorithm
+    int blockSize = 16 ;
+
+    // Calculate the number of bytes needed to fill a complete block
+    int paddingSize = blockSize - (inputText.length() % blockSize);
+
+    // Create a string with the necessary padding
+    for (int i = 0; i < paddingSize; i++) {
+        inputText += char(paddingSize);
+    }
+
+    return inputText;
+}
+
 String encrypt(String inputText) {
+
+    inputText = addPadding(inputText) ;
    
     int bytesInputLength = inputText.length() + 1;
 
@@ -53,9 +70,12 @@ String encrypt(String inputText) {
     // KEY and IV
     byte aesKey[] = { 23, 45, 56, 67, 67, 87, 98, 12, 32, 34, 45, 56, 67, 87, 65, 5 };
     //Completely random Iv 
-    byte aesIv[] = { rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256 };
 
-    aesLib.set_paddingmode((paddingMode)0);
+    int listByte[16] = { rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256 };
+
+    //int listByte[16] = { 123, 43, 46, 89, 29, 187, 58, 213, 78, 50, 19, 106, 205, 1, 5, 7 };
+
+    byte aesIv[] = { listByte[0], listByte[1], listByte[2], listByte[3], listByte[4], listByte[5], listByte[6], listByte[7], listByte[8], listByte[9], listByte[10], listByte[11], listByte[12], listByte[13], listByte[14], listByte[15] };
 
     aesLib.encrypt(bytesInput, bytesInputLength, bytesEncrypted, aesKey, 16, aesIv);
 
@@ -63,22 +83,27 @@ String encrypt(String inputText) {
 
     // convert the encrypted bytes into base64 string "base64EncodedOutput"
     base64::encode(bytesEncrypted, outputLength, base64EncodedOutput);
-
+  
     //String for the concat of Iv and encryptedMassage
     String encryptToSend ;
     for(int loop = 0; loop < 15; loop++){
-      encryptToSend += aesIv[loop] ;
+      Serial.println(listByte[loop]);
+      encryptToSend += listByte[loop] ;
       encryptToSend += "," ;
     }
     
     //Concat the last byte and the message with ";" as a separator
-    encryptToSend += aesIv[15] ;
+    encryptToSend += listByte[15] ;
     encryptToSend += ";" ;
     encryptToSend += String(base64EncodedOutput) ;
 
     // convert the encoded base64 char array into string
     return encryptToSend;
+    
+
+    //return String(base64EncodedOutput);
 }
+
 
 String floatToString(float num) {
 
@@ -154,17 +179,18 @@ void loop(){
   Serial.println(temp);
   */
 
-  
-  Serial.println(encrypt(floatToString(hum)));
-  
+  char stringHum[12];
+  sprintf(stringHum, "%d", (int)hum);
+
   mqttClient.beginMessage(topic);
-  mqttClient.print(encrypt(floatToString(hum)));
+  mqttClient.print(encrypt(stringHum));
   //Serial.println(hum);
   mqttClient.endMessage();
 
+  float temp_rounded_down = floorf(temp * 100) / 100;
+
   mqttClient.beginMessage(topic2);
-  mqttClient.print(encrypt(floatToString(temp)));
-  //Serial.println(temp);
+  mqttClient.print(encrypt(floatToString(temp_rounded_down)));
   mqttClient.endMessage();
 
 }
