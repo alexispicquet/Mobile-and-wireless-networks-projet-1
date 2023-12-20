@@ -1,5 +1,4 @@
 import paho.mqtt.client as mqtt
-from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import base64
@@ -14,7 +13,7 @@ def decrypt(encrypted_text):
     encrypted_message = base64.b64decode(message)
 
     # AES key (must be the same key used for encryption in your C++ code)
-    aes_key = bytes([23, 45, 56, 67, 67, 87, 98, 12, 32, 34, 45, 56, 67, 87, 65, 5])
+    aes_key = bytes([23, 45, 56, 67, 67, 87, 98, 12, 32, 34, 45, 56, 67, 87, 65, 5 ])
 
     # Create an AES cipher object with CBC mode and PKCS7 padding
     cipher = Cipher(algorithms.AES(aes_key), modes.CBC(bytes(iv)), backend=default_backend())
@@ -22,16 +21,13 @@ def decrypt(encrypted_text):
 
     # Decrypt the message
     decrypted_message = decryptor.update(encrypted_message) + decryptor.finalize()
-    # decrypted_text = decrypted_message.decode('utf-8')
-    #
+    decrypted_text = decrypted_message
     # return decrypted_text
     #fct pas car bytes bizzare
-    return decrypted_message
+    decrypted_text = decrypted_text[0:5]
+    decrypted_text = decrypted_text.decode('utf-8')
 
-# Exempleq d'utilisation:
-encrypted_string = "196,161,204,13,153,108,186,11,152,148,103,2,145,218,161,82;xKHMDZlsuguYlGcCkdqhUg=="
-decrypted_result = decrypt(encrypted_string)
-print(decrypted_result)
+    return decrypted_text
 
 
 
@@ -45,9 +41,17 @@ def on_connect(client, userdata, flags, rc):
     else:
         print(f"Connection failed with error code {rc}")
 
+def write_to_file(data,file):
+    with open(file, 'a') as f:
+        f.write(data + '\n')
+
 # Callback when a message is received from the MQTT broker
 def on_message(client, userdata, msg):
-    print(f"Received message on topic {msg.topic}: {msg.payload.decode('utf-8')}")
+    topic = msg.topic
+    msg = msg.payload.decode('utf-8')
+    msg = decrypt(msg)
+
+    print(f"Received message on topic {topic}: {msg}")
 
 # Create an MQTT client instance
 client = mqtt.Client()
