@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <BLAKE2s.h>
 
 // import base64 conversion library
 #include "arduino_base64.hpp"
@@ -28,6 +29,9 @@ const char* MQTT_PASSWD = "tata";
 
 const char topic[20] = "humidite";
 const char topic2[20] = "temperature";
+
+byte aesKey[] = { 23, 45, 56, 67, 67, 87, 98, 12, 32, 34, 45, 56, 67, 87, 65, 5 };
+char *hMacKey = "mySecretKeyUsedForHMAC";
 
 float temp;
 float hum;
@@ -55,53 +59,67 @@ String addPadding(String inputText) {
 
 String encrypt(String inputText) {
 
-    inputText = addPadding(inputText) ;
-   
-    int bytesInputLength = inputText.length() + 1;
-
-    byte bytesInput[bytesInputLength];
-
-    inputText.getBytes(bytesInput, bytesInputLength);
-
-    int outputLength = aesLib.get_cipher_length(bytesInputLength);
-
-    byte bytesEncrypted[outputLength];
-
-    // KEY and IV
-    byte aesKey[] = { 23, 45, 56, 67, 67, 87, 98, 12, 32, 34, 45, 56, 67, 87, 65, 5 };
-    //Completely random Iv 
-
-    int listByte[16] = { rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256 };
-
-    //int listByte[16] = { 123, 43, 46, 89, 29, 187, 58, 213, 78, 50, 19, 106, 205, 1, 5, 7 };
-
-    byte aesIv[] = { listByte[0], listByte[1], listByte[2], listByte[3], listByte[4], listByte[5], listByte[6], listByte[7], listByte[8], listByte[9], listByte[10], listByte[11], listByte[12], listByte[13], listByte[14], listByte[15] };
-
-    aesLib.encrypt(bytesInput, bytesInputLength, bytesEncrypted, aesKey, 16, aesIv);
-
-    char base64EncodedOutput[base64::encodeLength(outputLength)];
-
-    // convert the encrypted bytes into base64 string "base64EncodedOutput"
-    base64::encode(bytesEncrypted, outputLength, base64EncodedOutput);
+  //inputText = addPadding(inputText) ;
   
-    //String for the concat of Iv and encryptedMassage
-    String encryptToSend ;
-    for(int loop = 0; loop < 15; loop++){
-      Serial.println(listByte[loop]);
-      encryptToSend += listByte[loop] ;
-      encryptToSend += "," ;
-    }
-    
-    //Concat the last byte and the message with ";" as a separator
-    encryptToSend += listByte[15] ;
-    encryptToSend += ";" ;
-    encryptToSend += String(base64EncodedOutput) ;
+  int bytesInputLength = inputText.length() + 1;
 
-    // convert the encoded base64 char array into string
-    return encryptToSend;
-    
+  byte bytesInput[bytesInputLength];
 
-    //return String(base64EncodedOutput);
+  inputText.getBytes(bytesInput, bytesInputLength);
+
+  int outputLength = aesLib.get_cipher_length(bytesInputLength);
+
+  byte bytesEncrypted[outputLength];
+
+  //Completely random Iv 
+
+  int listByte[16] = { rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256, rand()%256 };
+
+  //int listByte[16] = { 123, 43, 46, 89, 29, 187, 58, 213, 78, 50, 19, 106, 205, 1, 5, 7 };
+
+  byte aesIv[] = { listByte[0], listByte[1], listByte[2], listByte[3], listByte[4], listByte[5], listByte[6], listByte[7], listByte[8], listByte[9], listByte[10], listByte[11], listByte[12], listByte[13], listByte[14], listByte[15] };
+
+  aesLib.set_paddingmode((paddingMode)0);
+
+  aesLib.encrypt(bytesInput, bytesInputLength, bytesEncrypted, aesKey, 16, aesIv);
+
+  char base64EncodedOutput[base64::encodeLength(outputLength)];
+
+  // convert the encrypted bytes into base64 string "base64EncodedOutput"
+  base64::encode(bytesEncrypted, outputLength, base64EncodedOutput);
+
+  char *payload = base64EncodedOutput ;
+
+  BLAKE2s blake;
+  blake.resetHMAC(hMacKey, sizeof(hMacKey));
+  blake.update(payload, sizeof(payload));
+  byte hmacResult[32];
+  blake.finalizeHMAC(hMacKey, sizeof(hMacKey), hmacResult, 32);
+
+ 
+
+  //String for the concat of Iv and encryptedMassage
+  String encryptToSend ;
+  for(int loop = 0; loop < 15; loop++){
+    encryptToSend += listByte[loop] ;
+    encryptToSend += "," ;
+  }
+  
+  //Concat the last byte and the message with ";" as a separator
+  encryptToSend += listByte[15] ;
+  encryptToSend += ";" ;
+  encryptToSend += String(base64EncodedOutput) ;
+  encryptToSend += ";" ;
+
+  for(int i= 0; i< sizeof(hmacResult); i++){
+      char str[3];
+ 
+      sprintf(str, "%02x", (int)hmacResult[i]);
+      encryptToSend += str ;
+  }
+
+  // convert the encoded base64 char array into string
+  return encryptToSend;
 }
 
 
@@ -170,21 +188,13 @@ void loop(){
   } else {
     digitalWrite(redLedPin, LOW);
   }
-  /*
-  
-  Serial.print("Humidity (%): ");
-  Serial.println(hum);
 
-  Serial.print("Temperature  (C): ");
-  Serial.println(temp);
-  */
 
   char stringHum[12];
   sprintf(stringHum, "%d", (int)hum);
 
   mqttClient.beginMessage(topic);
   mqttClient.print(encrypt(stringHum));
-  //Serial.println(hum);
   mqttClient.endMessage();
 
   float temp_rounded_down = floorf(temp * 100) / 100;
