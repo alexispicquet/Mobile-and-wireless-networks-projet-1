@@ -43,9 +43,35 @@ def update_plots(temperature_device1, temperature_device2, hum1, hum2):
     plt.show()
 
 
-def decrypt(encrypted_text):
-    iv_str, message = encrypted_text.split(';')
+import hashlib
 
+def calculate_blake2s_hash(cipher, key):
+    # Combine cipher and key
+    data_to_hash = cipher.encode('utf-8') + key.encode('utf-8')
+
+    # Create a Blake2s hash object
+    blake2s_hash = hashlib.blake2s(data_to_hash)
+
+    # Get the hexadecimal representation of the hash
+    hash_result = blake2s_hash.hexdigest()
+
+    return hash_result
+
+# Example usage
+cipher_text = "your_cipher_text_here"
+key = "your_key_here"
+
+hash_result = calculate_blake2s_hash(cipher_text, key)
+print(f"Blake2s Hash: {hash_result}")
+
+
+def decrypt(encrypted_text):
+    iv_str, message,hash = encrypted_text.split(';')
+    key = "mySecretKeyUsedForHMAC"
+    cipher = iv_str + ';' + message
+    if hash != calculate_blake2s_hash(cipher, key):
+        print("HMAC verification failed!")
+        return
     iv = [int(byte_str) for byte_str in iv_str.split(',')]
 
     # Decode Base64-encoded encrypted message to bytes
