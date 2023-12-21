@@ -6,6 +6,17 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib import style
 
+# Initialize Matplotlib
+style.use('ggplot')
+fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True)
+
+# Variables to store the data
+time_data = []
+temperature1_data = []
+humidity1_data = []
+temperature2_data = []
+humidity2_data = []
+
 def decrypt(encrypted_text):
     iv_str, message = encrypted_text.split(';')
 
@@ -38,58 +49,55 @@ def on_connect(client, userdata, flags, rc):
     if rc == 0:
         print("Connected to MQTT broker")
         # Subscribe to the topics you are interested in
-        client.subscribe("humidite")
-        client.subscribe("temperature")
+        client.subscribe("temperature1")
+        client.subscribe("humidity1")
+        client.subscribe("temperature2")
+        client.subscribe("humidity2")
     else:
         print(f"Connection failed with error code {rc}")
 
-def write_to_file(data,file):
-    with open(file, 'a') as f:
-        f.write(data + '\n')
-
 # Callback when a message is received from the MQTT broker
-
-style.use('fivethirtyeight')
-
-fig = plt.figure()
-axe1 = fig.add_subplot(1, 1, 1)
-
-# Set the maximum number of points to be displayed
-max_points = 10
-
-
-def animate(interval):
-    graph_data = open('filedata.txt', 'r').read()
-    lines = graph_data.split('\n')
-    xs = []
-    ys = []
-    for line in lines:
-        if len(line) > 1:
-            x, y = map(int, line.split(','))
-            xs.append(x)
-            ys.append(y)
-
-    # Display only the last 'max_points' points
-    xs = xs[-max_points:]
-    ys = ys[-max_points:]
-
-    axe1.clear()
-    axe1.plot(xs, ys)
-
 def on_message(client, userdata, msg):
     topic = msg.topic
-    msg = msg.payload.decode('utf-8')
-    msg = decrypt(msg)
+    decrypted_msg = decrypt(msg.payload.decode('utf-8'))
+    print(f"Received message on topic {topic}: {decrypted_msg}")
 
-    print(f"Received message on topic {topic}: {msg}")
+    # Update data lists
+    if topic == "temperature1":
+        temperature1_data.append(float(decrypted_msg))
+    elif topic == "humidity1":
+        humidity1_data.append(float(decrypted_msg))
+    elif topic == "temperature2":
+        temperature2_data.append(float(decrypted_msg))
+    elif topic == "humidity2":
+        humidity2_data.append(float(decrypted_msg))
 
-    with open("filedata.txt", 'w+') as file:
-        # Write content to the file
-        x = len(file.readlines())
-        file.write(f"{x}, ',', {msg}\n")
+    # Update plot
+    update_plot()
+    print(f"Received message on topic {topic}: {decrypted_msg}")
 
-    ani = animation.FuncAnimation(fig, animate, interval=1000)
-    plt.show()
+def update_plot():
+    # Update time data
+    time_data.append(len(time_data) + 1)
+
+    # Plot temperature data
+    ax1.clear()
+    ax1.plot(time_data, temperature1_data, label='Temperature Device 1')
+    ax1.plot(time_data, temperature2_data, label='Temperature Device 2')
+    ax1.set_ylabel('Temperature (°C)')
+    ax1.legend()
+
+    # Plot humidity data
+    ax2.clear()
+    ax2.plot(time_data, humidity1_data, label='Humidity Device 1')
+    ax2.plot(time_data, humidity2_data, label='Humidity Device 2')
+    ax2.set_xlabel('Time')
+    ax2.set_ylabel('Humidity (%)')
+    ax2.legend()
+
+    # Display the plot
+    plt.pause(0.1)
+
 
 # Create an MQTT client instance
 client = mqtt.Client()
