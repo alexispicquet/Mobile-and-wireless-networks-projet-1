@@ -2,9 +2,46 @@ import paho.mqtt.client as mqtt
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import base64
+humidity2_data = []
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
-from matplotlib import style
+
+# Variables to store the data
+time_data = []
+temperature1_data = []
+humidity1_data = []
+temperature2_data = []
+
+def update_plots(temperature_device1, temperature_device2, hum1, hum2):
+    # Plotting Temperature Device 1
+    plt.subplot(2, 2, 1)
+    plt.plot(temperature_device1, label='Temperature Device 1')
+    plt.title('Temperature Device 1')
+    plt.legend()
+
+    # Plotting Temperature Device 2
+    plt.subplot(2, 2, 2)
+    plt.plot(temperature_device2, label='Temperature Device 2', color='orange')
+    plt.title('Temperature Device 2')
+    plt.legend()
+
+    # Plotting Humidity 1
+    plt.subplot(2, 2, 3)
+    plt.plot(hum1, label='Humidity 1', color='green')
+    plt.title('Humidity 1')
+    plt.legend()
+
+    # Plotting Humidity 2
+    plt.subplot(2, 2, 4)
+    plt.plot(hum2, label='Humidity 2', color='red')
+    plt.title('Humidity 2')
+    plt.legend()
+
+    # Adjust layout for better visualization
+    plt.tight_layout()
+
+    # Show the plots
+    plt.show()
+
 
 def decrypt(encrypted_text):
     iv_str, message = encrypted_text.split(';')
@@ -43,53 +80,22 @@ def on_connect(client, userdata, flags, rc):
     else:
         print(f"Connection failed with error code {rc}")
 
-def write_to_file(data,file):
-    with open(file, 'a') as f:
-        f.write(data + '\n')
-
-# Callback when a message is received from the MQTT broker
-
-style.use('fivethirtyeight')
-
-fig = plt.figure()
-axe1 = fig.add_subplot(1, 1, 1)
-
-# Set the maximum number of points to be displayed
-max_points = 10
-
-
-def animate(interval):
-    graph_data = open('filedata.txt', 'r').read()
-    lines = graph_data.split('\n')
-    xs = []
-    ys = []
-    for line in lines:
-        if len(line) > 1:
-            x, y = map(int, line.split(','))
-            xs.append(x)
-            ys.append(y)
-
-    # Display only the last 'max_points' points
-    xs = xs[-max_points:]
-    ys = ys[-max_points:]
-
-    axe1.clear()
-    axe1.plot(xs, ys)
-
 def on_message(client, userdata, msg):
     topic = msg.topic
-    msg = msg.payload.decode('utf-8')
-    msg = decrypt(msg)
+    decrypted_msg = decrypt(msg.payload.decode('utf-8'))
+    print(f"Received message on topic {topic}: {decrypted_msg}")
 
-    print(f"Received message on topic {topic}: {msg}")
-
-    with open("filedata.txt", 'w+') as file:
-        # Write content to the file
-        x = len(file.readlines())
-        file.write(f"{x}, ',', {msg}\n")
-
-    ani = animation.FuncAnimation(fig, animate, interval=1000)
-    plt.show()
+    # Update data lists
+    if topic == "temperature1":
+        temperature1_data.append(float(decrypted_msg))
+    elif topic == "humidity1":
+        humidity1_data.append(float(decrypted_msg))
+    elif topic == "temperature2":
+        temperature2_data.append(float(decrypted_msg))
+    elif topic == "humidity2":
+        humidity2_data.append(float(decrypted_msg))
+    update_plots(temperature1_data, temperature2_data, humidity1_data, humidity2_data)
+    print(f"Received message on topic {topic}: {decrypted_msg}")
 
 # Create an MQTT client instance
 client = mqtt.Client()
