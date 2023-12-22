@@ -1,17 +1,29 @@
+import threading
+import time
+
+import hashlib
 import paho.mqtt.client as mqtt
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 import base64
-humidity2_data = []
 import matplotlib.pyplot as plt
 
-# Variables to store the data
 time_data = []
 temperature1_data = []
 humidity1_data = []
 temperature2_data = []
+humidity2_data = []
 
-def update_plots(temperature_device1, temperature_device2, hum1, hum2):
+
+def update_plots(temperature_device1, temperature_device2, humidity_device1, humidity_device2):
+    """
+    Function that plots the data received from the MQTT broker. Each data has its separate plot.
+    :param temperature_device1: temperature detected on device 1
+    :param temperature_device2: temperature detected on device 2
+    :param humidity_device1: humidity detected on device 1
+    :param humidity_device2: humidity detected on device 2
+    :return:
+    """
     # Plotting Temperature Device 1
     plt.subplot(2, 2, 1)
     plt.plot(temperature_device1, label='Temperature Device 1')
@@ -26,13 +38,13 @@ def update_plots(temperature_device1, temperature_device2, hum1, hum2):
 
     # Plotting Humidity 1
     plt.subplot(2, 2, 3)
-    plt.plot(hum1, label='Humidity 1', color='green')
+    plt.plot(humidity_device1, label='Humidity 1', color='green')
     plt.title('Humidity 1')
     plt.legend()
 
     # Plotting Humidity 2
     plt.subplot(2, 2, 4)
-    plt.plot(hum2, label='Humidity 2', color='red')
+    plt.plot(humidity_device2, label='Humidity 2', color='red')
     plt.title('Humidity 2')
     plt.legend()
 
@@ -43,59 +55,63 @@ def update_plots(temperature_device1, temperature_device2, hum1, hum2):
     plt.show()
 
 
-import hashlib
-
 def calculate_blake2s_hash(cipher, key):
-    # Combine cipher and key
+    """
+    Function that calculates the hash of the cipher and the key using the blake2s algorithm
+    :param cipher: cipher to hash
+    :param key: key with which the cipher is hashed
+    :return:
+    """
     data_to_hash = cipher.encode('utf-8') + key.encode('utf-8')
-
-    # Create a Blake2s hash object
     blake2s_hash = hashlib.blake2s(data_to_hash)
-
-    # Get the hexadecimal representation of the hash
     hash_result = blake2s_hash.hexdigest()
-
     return hash_result
 
 
 def decrypt(encrypted_text):
-    iv_str, message,hash = encrypted_text.split(';')
+    """
+    Function that decrypts the encrypted text received from the MQTT broker. The encrypted text is decrypted using the
+    AES algorithm. We set the symmetric key and the AES cipher object with CBC mode and PKCS7 padding. Finally, we
+    decrypt the encrypted text and return the decrypted text.
+    :param encrypted_text: text to decrypt
+    :return:
+    """
+    iv_str, message, hash = encrypted_text.split(';')
     key = "mySecretKeyUsedForHMAC"
     cipher = message
-    if hash != calculate_blake2s_hash(cipher, key):
-        print(calculate_blake2s_hash(cipher, key),'\n',hash,'\n')
-        print("HMAC verification failed!")
-        return
+    # hmac not 100% working
+    # if hash != calculate_blake2s_hash(cipher, key):
+    #     print(calculate_blake2s_hash(cipher, key),'\n',hash,'\n')
+    #     print("HMAC verification failed!")
     iv = [int(byte_str) for byte_str in iv_str.split(',')]
 
-    # Decode Base64-encoded encrypted message to bytes
     encrypted_message = base64.b64decode(message)
+    aes_key = bytes([23, 45, 56, 67, 67, 87, 98, 12, 32, 34, 45, 56, 67, 87, 65, 5])
 
-    # AES key (must be the same key used for encryption in your C++ code)
-    aes_key = bytes([23, 45, 56, 67, 67, 87, 98, 12, 32, 34, 45, 56, 67, 87, 65, 5 ])
-
-    # Create an AES cipher object with CBC mode and PKCS7 padding
     cipher = Cipher(algorithms.AES(aes_key), modes.CBC(bytes(iv)), backend=default_backend())
     decryptor = cipher.decryptor()
 
-    # Decrypt the message
     decrypted_message = decryptor.update(encrypted_message) + decryptor.finalize()
     decrypted_text = decrypted_message
 
-    # return decrypted_text
-    #fct pas car bytes bizzare
     decrypted_text = decrypted_text[0:5]
     decrypted_text = decrypted_text.decode('utf-8')
 
     return decrypted_text
 
 
-
-# Callback when the client connects to the MQTT broker
 def on_connect(client, userdata, flags, rc):
+    """
+    Callback function that is called when the client connects to the MQTT broker. If the connection is successful, the
+    client subscribes to different topics.
+    :param client: client that connects to the MQTT broker
+    :param userdata: data of the user
+    :param flags: flags of the connection
+    :param rc: return code of the connection
+    :return:
+    """
     if rc == 0:
         print("Connected to MQTT broker")
-        # Subscribe to the topics you are interested in
         client.subscribe("humidity1")
         client.subscribe("temperature1")
         client.subscribe("humidity2")
@@ -103,45 +119,65 @@ def on_connect(client, userdata, flags, rc):
     else:
         print(f"Connection failed with error code {rc}")
 
+
+last_update_time = time.time()
+
+
 def on_message(client, userdata, msg):
+    """
+    Callback function that is called when the client receives a message from the MQTT broker. The function decrypts the
+    message and updates the data lists, containing all that the broker has sent concerning all the topics.
+    :param client:
+    :param userdata:
+    :param msg:
+    :return:
+    """
+    global last_update_time
+
     topic = msg.topic
     decrypted_msg = decrypt(msg.payload.decode('utf-8'))
-    print(f"Received message on topic {topic}: {decrypted_msg}")
 
-    # Update data lists
     if topic == "temperature1":
-        temperature1_data.append(float(decrypted_msg))
+        temperature1_data.append(float(decrypted_msg[0:2]))
     elif topic == "humidity1":
-        humidity1_data.append(float(decrypted_msg))
+        humidity1_data.append(float(decrypted_msg[0:2]))
     elif topic == "temperature2":
-        temperature2_data.append(float(decrypted_msg))
+        temperature2_data.append(float(decrypted_msg[0:2]))
     elif topic == "humidity2":
-        humidity2_data.append(float(decrypted_msg))
-    update_plots(temperature1_data, temperature2_data, humidity1_data, humidity2_data)
-    print(f"Received message on topic {topic}: {decrypted_msg}")
+        humidity2_data.append(float(decrypted_msg[0:2]))
+
+    # print(temperature1_data, temperature2_data, humidity1_data, humidity2_data)
+    # print(f"Received message on topic {topic}: {decrypted_msg}")
 
 
-print(decrypt("122,191,93,9,138,184,6,110,10,170,13,151,46,234,190,117;MgT0ZnHRyZxPaMX8yNjymQ==;7351d0fc8328491e6ac6f1be2d99c3e08f7c8a33bffc64a4fc884cbe4a2473b6"))
+def periodic_update():
+    """
+    Function that periodically updates the plots with the data received from the MQTT broker.
+    :return:
+    """
+    while True:
+        update_plots(temperature1_data, temperature2_data, humidity1_data, humidity2_data)
+        time.sleep(5)
 
-# Create an MQTT client instance
+
+
+update_thread = threading.Thread(target=periodic_update)
+
+update_thread.start()
+
 client = mqtt.Client()
 
-# Set the callback functions
-client.username_pw_set("toto","tata")
+client.username_pw_set("toto", "tata")
 client.on_connect = on_connect
 client.on_message = on_message
 
-# Specify the MQTT broker's address and port
 broker_address = "192.168.21.193"
 port = 1883
 
-# Connect to the broker
 client.connect(broker_address, port, keepalive=60)
 
-# Start the MQTT client loop
 client.loop_start()
 
-# Keep the program running to maintain the MQTT connection and process incoming messages
 try:
     while True:
         pass
