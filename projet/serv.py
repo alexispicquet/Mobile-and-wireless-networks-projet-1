@@ -57,19 +57,13 @@ def calculate_blake2s_hash(cipher, key):
 
     return hash_result
 
-# Example usage
-cipher_text = "your_cipher_text_here"
-key = "your_key_here"
-
-hash_result = calculate_blake2s_hash(cipher_text, key)
-print(f"Blake2s Hash: {hash_result}")
-
 
 def decrypt(encrypted_text):
     iv_str, message,hash = encrypted_text.split(';')
     key = "mySecretKeyUsedForHMAC"
-    cipher = iv_str + ';' + message
+    cipher = message
     if hash != calculate_blake2s_hash(cipher, key):
+        print(calculate_blake2s_hash(cipher, key),'\n',hash,'\n')
         print("HMAC verification failed!")
         return
     iv = [int(byte_str) for byte_str in iv_str.split(',')]
@@ -87,6 +81,7 @@ def decrypt(encrypted_text):
     # Decrypt the message
     decrypted_message = decryptor.update(encrypted_message) + decryptor.finalize()
     decrypted_text = decrypted_message
+
     # return decrypted_text
     #fct pas car bytes bizzare
     decrypted_text = decrypted_text[0:5]
@@ -101,8 +96,10 @@ def on_connect(client, userdata, flags, rc):
     if rc == 0:
         print("Connected to MQTT broker")
         # Subscribe to the topics you are interested in
-        client.subscribe("humidite")
-        client.subscribe("temperature")
+        client.subscribe("humidity1")
+        client.subscribe("temperature1")
+        client.subscribe("humidity2")
+        client.subscribe("temperature2")
     else:
         print(f"Connection failed with error code {rc}")
 
@@ -122,6 +119,9 @@ def on_message(client, userdata, msg):
         humidity2_data.append(float(decrypted_msg))
     update_plots(temperature1_data, temperature2_data, humidity1_data, humidity2_data)
     print(f"Received message on topic {topic}: {decrypted_msg}")
+
+
+print(decrypt("122,191,93,9,138,184,6,110,10,170,13,151,46,234,190,117;MgT0ZnHRyZxPaMX8yNjymQ==;7351d0fc8328491e6ac6f1be2d99c3e08f7c8a33bffc64a4fc884cbe4a2473b6"))
 
 # Create an MQTT client instance
 client = mqtt.Client()
